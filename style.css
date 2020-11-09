@@ -16,6 +16,7 @@ body {
   font-size: 120px;
   text-align: center;
   white-space: nowrap;
+  text-shadow: 20px 10px 10px #000;
 }
 
 .soontm {
