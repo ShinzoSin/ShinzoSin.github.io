@@ -1,1 +1,0 @@
-# ShinzoSin.github.io
