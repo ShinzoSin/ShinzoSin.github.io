@@ -1,0 +1,33 @@
+body {
+  background-color: #000;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+}
+
+.centered {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.title {
+  font-family: 'Great Vibes', cursive;
+  font-size: 120px;
+}
+
+.soontm {
+  font-size: 40px;
+  text-align: center;
+}
+
+.footer {
+  position: fixed;
+  bottom: 1%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.test {
+  
+}
