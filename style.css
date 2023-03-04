@@ -21,6 +21,11 @@ a:hover {
   padding: 10px 100px;
   display: flex;
   justify-content: flex-start;
+  z-index: 9999;
+}
+
+.home .navbar {
+  position: absolute;
 }
 
 .navbar-button {
@@ -38,7 +43,15 @@ a:hover {
   background-color: #12110f;
   color: #ffffe8;
   font-family: 'Raleway', sans-serif;
-  height: 100vh
+  height: 100vh;
+}
+
+.home:before {
+  content: " ";
+  background-image: url(background.jpg);
+  position: absolute;
+  height: 100vh;
+  width: 100%;
 }
 
 .title {
@@ -153,6 +166,63 @@ a:hover {
   box-shadow: 0 1px 10px 0 rgb(0 0 0 / 15%);
 }
 
+.construction {
+  background-color: orange;
+  color: #000000;
+  font-family: 'Raleway', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.construction .centered {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  translate: 0;
+  position: relative;
+}
+
+.construction .centered .info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.construction .centered .info .info-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: orange;
+  font-weight: bold;
+  font-size: 100px;
+  width: 920px;
+  height: 560px;
+
+}
+
+.construction .centered .container {
+  background-color: orange;
+  width: 1080px;
+  height: 720px;
+  overflow: hidden;
+  box-shadow: 0 1px 10px 0 rgb(0 0 0 / 15%);
+}
+
+.construction .centered .container .bar {
+  height: 100px;
+  width: 9999px;
+  margin-bottom: 150px;
+  background-color: #000000;
+  transform: rotate(-45deg);
+  translate: -50% 0;
+}
 
 @media screen and (max-width: 800px) {
   .title {
