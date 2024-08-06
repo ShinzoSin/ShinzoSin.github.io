@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids Game</title>
+    <style>
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: black;
+        }
+        body {
+            text-align: center;
+            color: white;
+            background: black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const context = canvas.getContext("2d");
+
+        // Colors
+        const WHITE = "white";
+        const GREY = "grey";
+
+        // Screen dimensions
+        const SCREEN_WIDTH = 800;
+        const SCREEN_HEIGHT = 600;
+
+        // Initialize variables
+        const keys = {};
+        let player, projectiles, asteroids, gameOver, gameWon;
+
+        document.addEventListener("keydown", (event) => {
+            keys[event.key] = true;
+            if (event.key === " " && (gameOver || gameWon)) {
+                resetGame();
+            }
+        });
+
+        document.addEventListener("keyup", (event) => {
+            keys[event.key] = false;
+        });
+
+        class Player {
+            constructor() {
+                this.width = 30;
+                this.height = 30;
+                this.x = SCREEN_WIDTH / 2;
+                this.y = SCREEN_HEIGHT / 2;
+                this.angle = 0;
+                this.speed = 0.1;
+                this.velocityX = 0;
+                this.velocityY = 0;
+                this.shootDelay = 200;  // Time between shots in milliseconds
+                this.lastShotTime = performance.now();
+            }
+
+            draw() {
+                context.save();
+                context.translate(this.x, this.y);
+                context.rotate((this.angle) * Math.PI / 180);
+                context.beginPath();
+                context.moveTo(0, -this.height / 2);
+                context.lineTo(-this.width / 2, this.height / 2);
+                context.lineTo(0, this.height / 4);
+                context.lineTo(this.width / 2, this.height / 2);
+                context.closePath();
+                context.strokeStyle = WHITE;
+                context.stroke();
+                context.restore();
+            }
+
+            update() {
+                if (keys["ArrowLeft"]) {
+                    this.angle -= 5;
+                }
+                if (keys["ArrowRight"]) {
+                    this.angle += 5;
+                }
+                if (keys["ArrowUp"]) {
+                    this.velocityX += this.speed * Math.cos((this.angle - 90) * Math.PI / 180);
+                    this.velocityY += this.speed * Math.sin((this.angle - 90) * Math.PI / 180);
+                }
+
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+
+                // Screen wrap-around
+                if (this.x < 0) this.x = SCREEN_WIDTH;
+                if (this.x > SCREEN_WIDTH) this.x = 0;
+                if (this.y < 0) this.y = SCREEN_HEIGHT;
+                if (this.y > SCREEN_HEIGHT) this.y = 0;
+
+                // Continuous shooting
+                if (keys[" "]) {
+                    this.shoot();
+                }
+            }
+
+            shoot() {
+                const currentTime = performance.now();
+                if (currentTime - this.lastShotTime > this.shootDelay) {
+                    const projectile = new Projectile(this.x, this.y, this.angle - 90);
+                    projectiles.push(projectile);
+                    this.lastShotTime = currentTime;
+                }
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, angle) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.speed = 10;
+            }
+
+            draw() {
+                context.save();
+                context.translate(this.x, this.y);
+                context.rotate(this.angle * Math.PI / 180);
+                context.beginPath();
+                context.moveTo(-5, 0);
+                context.lineTo(5, 0);
+                context.strokeStyle = WHITE;
+                context.stroke();
+                context.restore();
+            }
+
+            update() {
+                this.x += this.speed * Math.cos(this.angle * Math.PI / 180);
+                this.y += this.speed * Math.sin(this.angle * Math.PI / 180);
+
+                // Remove projectile if it goes off screen
+                if (this.x < 0 || this.x > SCREEN_WIDTH || this.y < 0 || this.y > SCREEN_HEIGHT) {
+                    const index = projectiles.indexOf(this);
+                    if (index > -1) {
+                        projectiles.splice(index, 1);
+                    }
+                }
+            }
+        }
+
+        class Asteroid {
+            constructor(x = null, y = null, size = 75) {
+                this.size = size;
+                this.x = x !== null ? x : Math.random() * SCREEN_WIDTH;
+                this.y = y !== null ? y : Math.random() * SCREEN_HEIGHT;
+                this.speed = Math.random() * 3 + 1;
+                this.direction = Math.random() * 360;
+                this.vertices = Math.floor(Math.random() * 4) + 5;
+                this.points = this.generatePoints();
+            }
+
+            generatePoints() {
+                const angleStep = 360 / this.vertices;
+                const points = [];
+                for (let i = 0; i < this.vertices; i++) {
+                    const angle = i * angleStep * Math.PI / 180;
+                    const radius = Math.random() * (this.size * 0.5 - this.size * 0.3) + this.size * 0.3;
+                    const x = this.size / 2 + radius * Math.cos(angle);
+                    const y = this.size / 2 + radius * Math.sin(angle);
+                    points.push({ x, y });
+                }
+                return points;
+            }
+
+            draw() {
+                context.save();
+                context.translate(this.x, this.y);
+                context.beginPath();
+                context.moveTo(this.points[0].x, this.points[0].y);
+                for (const point of this.points) {
+                    context.lineTo(point.x, point.y);
+                }
+                context.closePath();
+                context.strokeStyle = GREY;
+                context.stroke();
+                context.restore();
+            }
+
+            update() {
+                this.x += this.speed * Math.cos(this.direction * Math.PI / 180);
+                this.y -= this.speed * Math.sin(this.direction * Math.PI / 180);
+
+                // Screen wrap-around
+                if (this.x < 0) this.x = SCREEN_WIDTH;
+                if (this.x > SCREEN_WIDTH) this.x = 0;
+                if (this.y < 0) this.y = SCREEN_HEIGHT;
+                if (this.y > SCREEN_HEIGHT) this.y = 0;
+            }
+
+            split() {
+                if (this.size > 18.75) {  // Minimum size to split (25% of 75)
+                    return [new Asteroid(this.x, this.y, this.size / 2), new Asteroid(this.x, this.y, this.size / 2)];
+                } else {
+                    return [];
+                }
+            }
+        }
+
+        function resetGame() {
+            player = new Player();
+            projectiles = [];
+            asteroids = Array.from({ length: 10 }, () => new Asteroid());
+            gameOver = false;
+            gameWon = false;
+        }
+
+        function update() {
+            context.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+            if (!gameOver && !gameWon) {
+                player.update();
+                for (const projectile of projectiles) {
+                    projectile.update();
+                }
+                for (const asteroid of asteroids) {
+                    asteroid.update();
+                }
+
+                // Check for collisions
+                for (const asteroid of asteroids) {
+                    const distance = Math.hypot(player.x - asteroid.x, player.y - asteroid.y);
+                    if (distance < asteroid.size / 2) {
+                        gameOver = true;
+                    }
+                }
+
+                // Check for projectile-asteroid collisions
+                for (const projectile of projectiles) {
+                    for (const asteroid of asteroids) {
+                        const distance = Math.hypot(projectile.x - asteroid.x, projectile.y - asteroid.y);
+                        if (distance < asteroid.size / 2) {
+                            const indexAsteroid = asteroids.indexOf(asteroid);
+                            if (indexAsteroid > -1) {
+                                asteroids.splice(indexAsteroid, 1);
+                                const splitAsteroids = asteroid.split();
+                                asteroids.push(...splitAsteroids);
+                            }
+                            const indexProjectile = projectiles.indexOf(projectile);
+                            if (indexProjectile > -1) {
+                                projectiles.splice(indexProjectile, 1);
+                            }
+                        }
+                    }
+                }
+
+                // Check if all asteroids are cleared
+                if (asteroids.length === 0) {
+                    gameWon = true;
+                }
+            }
+
+            // Draw everything
+            player.draw();
+            for (const projectile of projectiles) {
+                projectile.draw();
+            }
+            for (const asteroid of asteroids) {
+                asteroid.draw();
+            }
+
+            if (gameOver) {
+                context.font = "72px Arial";
+                context.fillStyle = WHITE;
+                context.fillText("GAME OVER", SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2);
+                context.font = "36px Arial";
+                context.fillText("(Press spacebar for new game)", SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 + 50);
+            } else if (gameWon) {
+                context.font = "72px Arial";
+                context.fillStyle = WHITE;
+                context.fillText("YOU WON!", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2);
+                context.font = "36px Arial";
+                context.fillText("(Press spacebar for new game)", SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 + 50);
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        resetGame();
+        update();
+    </script>
+</body>
+</html>
