@@ -106,6 +106,7 @@ h1 {
   display: flex;
   justify-content: flex-start;
   z-index: 9999;
+  font-family: 'Raleway', sans-serif;
 }
 
 .home .navbar {
@@ -131,8 +132,6 @@ h1 {
 }
 
 .home:before {
-  display: flex;
-  justify-content: center;
   content: url(background.jpg);
   position: absolute;
   width: 100%;
@@ -312,19 +311,38 @@ h1 {
 }
 
 @media screen and (max-width: 800px) {
+  .home:before {
+    display: block;
+  }
+
+  .navbar {
+    padding: 10px 10px;
+  }
+
   .title {
     font-size: 80px;
   }
 
   .soontm {
     font-size: 20px;
-    padding: 100px;
+    padding: 50px;
+    margin-bottom: 0;
+  }
+
+  .honeycomb-wrap {
+    position: unset;
+    max-width: 600px;
   }
 }
 
 @media screen and (max-width: 768px) {
-  .shop .centered {
-    height: 1080px;
+  .title {
+    font-size: 50px;
+  }
+
+  .honeycomb-wrap {
+    max-width: 300px;
+    margin: auto;
   }
 }
 
