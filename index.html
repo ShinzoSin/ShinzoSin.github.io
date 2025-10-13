@@ -1,41 +1,101 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>Smuggler Bay</title>
-    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Raleway&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <div class="home" id="Home">
-      <div class="navbar">
-        <a href="index.html" class="navbar-button">
-          Home
-        </a>
-        <a href="asteroids.html" class="navbar-button">
-          Asteroids
-        </a>
-        <a href="snake.html" class="navbar-button">
-          Snake
-        </a>
-        <a href="construction.html" class="navbar-button">
-          Construction
-        </a>
-      </div>
-      <div class="centered">
-        <div class="title">
-          Smuggler Bay
-        </div>
-        <div class="soontm">
-          Hi my name is Piotr Mazurek and this is my portfolio.
-          <br>
-          In my work I aim to create most beautiful
-          <br>
-          handcrafted bespoke apps.
-        </div>
-      </div>
-      <div class="footer">
-      </div>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smuggler Bay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Raleway&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="home" id="Home">
+  <div class="centered">
+    <div class="title">
+      Smuggler Bay
     </div>
-  </body>
+    <div class="soontm">
+      Hi my name is Piotr Mazurek and this is my portfolio.
+      <br>
+      In my work I aim to create most beautiful
+      <br>
+      handcrafted bespoke apps.
+    </div>
+
+    <ul id="source" class="hidden-list">
+      <li><a href="asteroids.html" data-preview="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExYTBjODN4a3JmM3VnY21wbncyOHhnemR4aHhlc3FsaXVlZnl2amxpbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/W5g5W5hMkzrJQDpN3P/giphy.gif">Asteroids</a></li>
+      <li><a href="snake.html" data-preview="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExN3pndzBoZzJrcjYzMDM3NHFuMjN3NDVjMnE0aXg3czM3Y2xkd3ppMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/vvW9GuxsGM4lcjqypz/giphy.gif">Snake</a></li>
+      <li><a href="https://www.youtube.com/@ShinzoSin" data-preview="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDcwOGRvMDBxNXY1aTdpdnp3cnZrNzliN2xzMmJqM2VkZjY0azBndCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gmETs8k6lI3uIVYcQy/giphy.gif">YouTube</a></li>
+      <li><a href="https://www.twitch.tv/shinzosin" data-preview="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMDJmYWVvdHg2OTRmdGNtdGNtNXkxNnl3MHV3dzJxdXNwamF1NGQwYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/ObptjhENvMtMi2bhdv/giphy.gif">Twitch</a></li>
+      <li><a href="https://streamelements.com/shinzosin/tip" data-preview="https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif">Tip</a></li>
+    </ul>
+
+    <div class="honeycomb-wrap">
+      <div id="honeycomb"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const list = document.querySelectorAll('#source li a');
+    const honey = document.getElementById('honeycomb');
+    const wrap = document.querySelector('.honeycomb-wrap');
+
+    function buildHexes() {
+      honey.innerHTML = '';
+      list.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'hex';
+        div.dataset.preview = a.dataset.preview || '';
+
+        const link = document.createElement('a');
+        link.href = a.href;
+        link.textContent = a.textContent;
+
+        div.appendChild(link);
+        honey.appendChild(div);
+      });
+      layout();
+    }
+
+    function layout() {
+      const hexW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hex-w'));
+      const hexH = hexW * 0.866;
+      const gap = 12;
+      const tiles = honey.children;
+      const cols = Math.max(1, Math.floor(wrap.clientWidth / (hexW * 0.75)));
+
+      let maxX = 0;
+      for (let i = 0; i < tiles.length; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = col * (hexW * 0.75 + gap/2);
+        const y = row * (hexH + gap/2) + ((col % 2) * (hexH / 2));
+        tiles[i].style.transform = `translate(${x}px, ${y}px)`;
+        maxX = Math.max(maxX, x);
+      }
+
+      const totalRows = Math.ceil(tiles.length / cols);
+      const height = totalRows * (hexH + gap/2) + hexH/2;
+      const totalWidth = maxX + hexW;
+
+      honey.style.height = height + 'px';
+      honey.style.width = totalWidth + 'px';
+    }
+
+    // GIF hover swap
+    honey.addEventListener('mouseenter', e => {
+      const hex = e.target.closest('.hex');
+      if (!hex || !hex.dataset.preview) return;
+      hex.style.backgroundImage = `url('${hex.dataset.preview}')`;
+    }, true);
+
+    honey.addEventListener('mouseleave', e => {
+      const hex = e.target.closest('.hex');
+      if (!hex) return;
+      hex.style.backgroundImage = '';
+    }, true);
+
+    window.addEventListener('resize', layout);
+    buildHexes();
+  </script>
+</body>
 </html>

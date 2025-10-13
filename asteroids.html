@@ -1,305 +1,318 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asteroids Game</title>
-    <style>
-        canvas {
-            display: block;
-            margin: 0 auto;
-            background: black;
-        }
-        body {
-            text-align: center;
-            color: white;
-            background: black;
-        }
-    </style>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Asteroids Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* ✅ Simple text links for navbar */
+    .navbar {
+      position: absolute;
+      padding: 10px 100px;
+      width: 100%;
+      z-index: 10;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin: 0 15px;
+      font-size: 18px;
+    }
+    .navbar a:hover {
+      text-decoration: underline;
+    }
+
+    /* ✅ Canvas fills full screen */
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+    }
+
+    /* ✅ Overlay for win/lose messages */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      text-align: center;
+      color: white;
+      font-family: Arial, sans-serif;
+      z-index: 5;
+    }
+    .overlay h1 {
+      font-size: 72px;
+      margin: 0;
+    }
+    .overlay p {
+      font-size: 24px;
+      opacity: 0.8;
+    }
+  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="navbar">
-      <a href="index.html" class="navbar-button">
-        Home
-      </a>
-      <a href="asteroids.html" class="navbar-button">
-        Asteroids
-      </a>
-      <a href="snake.html" class="navbar-button">
-        Snake
-      </a>
-      <a href="construction.html" class="navbar-button">
-        Construction
-      </a>
-    </div>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const context = canvas.getContext("2d");
+  <div class="navbar">
+    <a href="index.html">Home</a>
+    <a href="asteroids.html">Asteroids</a>
+    <a href="snake.html">Snake</a>
+  </div>
 
-        // Colors
-        const WHITE = "white";
-        const GREY = "grey";
+  <canvas id="gameCanvas"></canvas>
+  <div class="overlay" id="overlay"></div>
 
-        // Screen dimensions
-        const SCREEN_WIDTH = 800;
-        const SCREEN_HEIGHT = 600;
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("overlay");
 
-        // Initialize variables
-        const keys = {};
-        let player, projectiles, asteroids, gameOver, gameWon;
+    const keys = {};
+    document.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+      if ((e.key === " " || e.code === "Space") && (gameOver || gameWon)) resetGame();
+      if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+    });
+    document.addEventListener("keyup", (e) => keys[e.key] = false);
 
-        document.addEventListener("keydown", (event) => {
-            keys[event.key] = true;
-            if (event.key === " " && (gameOver || gameWon)) {
-                resetGame();
-            }
-        });
+    let SCREEN_WIDTH = window.innerWidth;
+    let SCREEN_HEIGHT = window.innerHeight;
 
-        document.addEventListener("keyup", (event) => {
-            keys[event.key] = false;
-        });
+    function resizeCanvas() {
+      SCREEN_WIDTH = window.innerWidth;
+      SCREEN_HEIGHT = window.innerHeight;
+      canvas.width = SCREEN_WIDTH;
+      canvas.height = SCREEN_HEIGHT;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
-        class Player {
-            constructor() {
-                this.width = 30;
-                this.height = 30;
-                this.x = SCREEN_WIDTH / 2;
-                this.y = SCREEN_HEIGHT / 2;
-                this.angle = 0;
-                this.speed = 0.1;
-                this.velocityX = 0;
-                this.velocityY = 0;
-                this.shootDelay = 200;  // Time between shots in milliseconds
-                this.lastShotTime = performance.now();
-            }
+    const WHITE = "white";
+    const GREY = "grey";
+    const toRad = d => d * Math.PI / 180;
+    const dist = (x1,y1,x2,y2)=>Math.hypot(x2-x1,y2-y1);
 
-            draw() {
-                context.save();
-                context.translate(this.x, this.y);
-                context.rotate((this.angle) * Math.PI / 180);
-                context.beginPath();
-                context.moveTo(0, -this.height / 2);
-                context.lineTo(-this.width / 2, this.height / 2);
-                context.lineTo(0, this.height / 4);
-                context.lineTo(this.width / 2, this.height / 2);
-                context.closePath();
-                context.strokeStyle = WHITE;
-                context.stroke();
-                context.restore();
-            }
+    let player, projectiles, asteroids, gameOver, gameWon, lastTime = 0;
 
-            update() {
-                if (keys["ArrowLeft"]) {
-                    this.angle -= 5;
-                }
-                if (keys["ArrowRight"]) {
-                    this.angle += 5;
-                }
-                if (keys["ArrowUp"]) {
-                    this.velocityX += this.speed * Math.cos((this.angle - 90) * Math.PI / 180);
-                    this.velocityY += this.speed * Math.sin((this.angle - 90) * Math.PI / 180);
-                }
+    class Player {
+      constructor() {
+        this.x = SCREEN_WIDTH/2;
+        this.y = SCREEN_HEIGHT/2;
+        this.angle = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.turnSpeed = 240;
+        this.thrust = 200;
+        this.radius = 12;
+        this.width = 30;
+        this.height = 30;
+        this.shootDelay = 0.18;
+        this.timeSinceLastShot = 0;
+      }
 
-                this.x += this.velocityX;
-                this.y += this.velocityY;
+      update(dt) {
+        if (keys["ArrowLeft"]) this.angle -= this.turnSpeed * dt;
+        if (keys["ArrowRight"]) this.angle += this.turnSpeed * dt;
 
-                // Screen wrap-around
-                if (this.x < 0) this.x = SCREEN_WIDTH;
-                if (this.x > SCREEN_WIDTH) this.x = 0;
-                if (this.y < 0) this.y = SCREEN_HEIGHT;
-                if (this.y > SCREEN_HEIGHT) this.y = 0;
-
-                // Continuous shooting
-                if (keys[" "]) {
-                    this.shoot();
-                }
-            }
-
-            shoot() {
-                const currentTime = performance.now();
-                if (currentTime - this.lastShotTime > this.shootDelay) {
-                    const projectile = new Projectile(this.x, this.y, this.angle - 90);
-                    projectiles.push(projectile);
-                    this.lastShotTime = currentTime;
-                }
-            }
+        if (keys["ArrowUp"]) {
+          const r = toRad(this.angle - 90);
+          this.vx += Math.cos(r) * this.thrust * dt;
+          this.vy += Math.sin(r) * this.thrust * dt;
         }
 
-        class Projectile {
-            constructor(x, y, angle) {
-                this.x = x;
-                this.y = y;
-                this.angle = angle;
-                this.speed = 10;
-            }
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
 
-            draw() {
-                context.save();
-                context.translate(this.x, this.y);
-                context.rotate(this.angle * Math.PI / 180);
-                context.beginPath();
-                context.moveTo(-5, 0);
-                context.lineTo(5, 0);
-                context.strokeStyle = WHITE;
-                context.stroke();
-                context.restore();
-            }
+        // Wrap around screen edges
+        if (this.x < -this.radius) this.x = SCREEN_WIDTH + this.radius;
+        if (this.x > SCREEN_WIDTH + this.radius) this.x = -this.radius;
+        if (this.y < -this.radius) this.y = SCREEN_HEIGHT + this.radius;
+        if (this.y > SCREEN_HEIGHT + this.radius) this.y = -this.radius;
 
-            update() {
-                this.x += this.speed * Math.cos(this.angle * Math.PI / 180);
-                this.y += this.speed * Math.sin(this.angle * Math.PI / 180);
+        this.timeSinceLastShot += dt;
+        if (keys[" "]) this.shoot();
+      }
 
-                // Remove projectile if it goes off screen
-                if (this.x < 0 || this.x > SCREEN_WIDTH || this.y < 0 || this.y > SCREEN_HEIGHT) {
-                    const index = projectiles.indexOf(this);
-                    if (index > -1) {
-                        projectiles.splice(index, 1);
-                    }
-                }
-            }
+      shoot() {
+        if (this.timeSinceLastShot >= this.shootDelay) {
+          const r = toRad(this.angle - 90);
+          projectiles.push(new Projectile(this.x, this.y, r));
+          this.timeSinceLastShot = 0;
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(toRad(this.angle));
+        ctx.beginPath();
+        ctx.moveTo(0, -this.height / 2);
+        ctx.lineTo(-this.width / 2, this.height / 2);
+        ctx.lineTo(0, this.height / 4);
+        ctx.lineTo(this.width / 2, this.height / 2);
+        ctx.closePath();
+        ctx.strokeStyle = WHITE;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class Projectile {
+      constructor(x,y,angle) {
+        this.x = x; this.y = y; this.angle = angle;
+        this.speed = 560;
+        this.r = 3;
+        this.life = 1.2;
+      }
+      update(dt) {
+        this.x += Math.cos(this.angle) * this.speed * dt;
+        this.y += Math.sin(this.angle) * this.speed * dt;
+        this.life -= dt;
+        if (this.life <= 0) this.dead = true;
+        if (this.x < -10 || this.x > SCREEN_WIDTH+10 || this.y < -10 || this.y > SCREEN_HEIGHT+10) this.dead = true;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+        ctx.strokeStyle = WHITE;
+        ctx.stroke();
+      }
+    }
+
+    class Asteroid {
+      constructor(x=null, y=null, size=75) {
+        this.x = x ?? Math.random()*SCREEN_WIDTH;
+        this.y = y ?? Math.random()*SCREEN_HEIGHT;
+        this.size = size;
+        this.radius = size*0.5;
+        const dir = Math.random()*Math.PI*2;
+        const speed = 40 + Math.random()*70;
+        this.vx = Math.cos(dir)*speed;
+        this.vy = Math.sin(dir)*speed;
+        this.vertices = 6 + Math.floor(Math.random()*5);
+        this.points = this.makePoints();
+        this.rotation = 0;
+        this.rotSpeed = (Math.random()-0.5)*1.2;
+      }
+      makePoints() {
+        const pts=[];
+        for(let i=0;i<this.vertices;i++){
+          const t = (i/this.vertices)*Math.PI*2;
+          const r = this.radius*(0.7+Math.random()*0.4);
+          pts.push({x:Math.cos(t)*r,y:Math.sin(t)*r});
+        }
+        pts.push(pts[0]);
+        return pts;
+      }
+      update(dt){
+        this.x+=this.vx*dt;
+        this.y+=this.vy*dt;
+        this.rotation+=this.rotSpeed*dt;
+        if (this.x < -this.radius) this.x = SCREEN_WIDTH + this.radius;
+        if (this.x > SCREEN_WIDTH + this.radius) this.x = -this.radius;
+        if (this.y < -this.radius) this.y = SCREEN_HEIGHT + this.radius;
+        if (this.y > SCREEN_HEIGHT + this.radius) this.y = -this.radius;
+      }
+      draw(){
+        ctx.save();
+        ctx.translate(this.x,this.y);
+        ctx.rotate(this.rotation);
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x,this.points[0].y);
+        for(const p of this.points) ctx.lineTo(p.x,p.y);
+        ctx.strokeStyle = GREY;
+        ctx.stroke();
+        ctx.restore();
+      }
+      split(){
+        if(this.size>22){
+          return [
+            new Asteroid(this.x,this.y,this.size*0.55),
+            new Asteroid(this.x,this.y,this.size*0.55)
+          ];
+        }
+        return [];
+      }
+    }
+
+    function resetGame(){
+      player = new Player();
+      projectiles = [];
+      asteroids = Array.from({length:10}, ()=>new Asteroid());
+      gameOver = false; gameWon = false;
+      overlay.innerHTML = "";
+      lastTime = 0;
+    }
+
+    function update(ts){
+      if(!lastTime) lastTime=ts;
+      const dt = Math.min((ts-lastTime)/1000,0.05);
+      lastTime=ts;
+
+      if(!gameOver && !gameWon){
+        player.update(dt);
+        for(const p of projectiles)p.update(dt);
+        for(const a of asteroids)a.update(dt);
+
+        for(const a of asteroids){
+          if(dist(player.x,player.y,a.x,a.y)<player.radius+a.radius){
+            gameOver=true;
+          }
         }
 
-        class Asteroid {
-            constructor(x = null, y = null, size = 75) {
-                this.size = size;
-                this.x = x !== null ? x : Math.random() * SCREEN_WIDTH;
-                this.y = y !== null ? y : Math.random() * SCREEN_HEIGHT;
-                this.speed = Math.random() * 3 + 1;
-                this.direction = Math.random() * 360;
-                this.vertices = Math.floor(Math.random() * 4) + 5;
-                this.points = this.generatePoints();
+        outer: for(let i=projectiles.length-1;i>=0;i--){
+          const p=projectiles[i];
+          for(let j=asteroids.length-1;j>=0;j--){
+            const a=asteroids[j];
+            if(dist(p.x,p.y,a.x,a.y)<p.r+a.radius){
+              asteroids.splice(j,1);
+              projectiles.splice(i,1);
+              const kids=a.split();
+              asteroids.push(...kids);
+              continue outer;
             }
-
-            generatePoints() {
-                const angleStep = 360 / this.vertices;
-                const points = [];
-                for (let i = 0; i < this.vertices; i++) {
-                    const angle = i * angleStep * Math.PI / 180;
-                    const radius = Math.random() * (this.size * 0.5 - this.size * 0.3) + this.size * 0.3;
-                    const x = this.size / 2 + radius * Math.cos(angle);
-                    const y = this.size / 2 + radius * Math.sin(angle);
-                    points.push({ x, y });
-                }
-                return points;
-            }
-
-            draw() {
-                context.save();
-                context.translate(this.x, this.y);
-                context.beginPath();
-                context.moveTo(this.points[0].x, this.points[0].y);
-                for (const point of this.points) {
-                    context.lineTo(point.x, point.y);
-                }
-                context.closePath();
-                context.strokeStyle = GREY;
-                context.stroke();
-                context.restore();
-            }
-
-            update() {
-                this.x += this.speed * Math.cos(this.direction * Math.PI / 180);
-                this.y -= this.speed * Math.sin(this.direction * Math.PI / 180);
-
-                // Screen wrap-around
-                if (this.x < 0) this.x = SCREEN_WIDTH;
-                if (this.x > SCREEN_WIDTH) this.x = 0;
-                if (this.y < 0) this.y = SCREEN_HEIGHT;
-                if (this.y > SCREEN_HEIGHT) this.y = 0;
-            }
-
-            split() {
-                if (this.size > 18.75) {  // Minimum size to split (25% of 75)
-                    return [new Asteroid(this.x, this.y, this.size / 2), new Asteroid(this.x, this.y, this.size / 2)];
-                } else {
-                    return [];
-                }
-            }
+          }
         }
+        projectiles=projectiles.filter(p=>!p.dead);
+        if(asteroids.length===0) gameWon=true;
+      }
 
-        function resetGame() {
-            player = new Player();
-            projectiles = [];
-            asteroids = Array.from({ length: 10 }, () => new Asteroid());
-            gameOver = false;
-            gameWon = false;
-        }
+      ctx.clearRect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
+      player.draw();
+      for(const p of projectiles)p.draw();
+      for(const a of asteroids)a.draw();
 
-        function update() {
-            context.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+      if(gameOver){
+        overlay.innerHTML = `
+          <h1>GAME OVER</h1>
+          <p>Press Space to play again</p>`;
+      } else if(gameWon){
+        overlay.innerHTML = `
+          <h1>YOU WON!</h1>
+          <p>Press Space to play again</p>`;
+      }
 
-            if (!gameOver && !gameWon) {
-                player.update();
-                for (const projectile of projectiles) {
-                    projectile.update();
-                }
-                for (const asteroid of asteroids) {
-                    asteroid.update();
-                }
+      requestAnimationFrame(update);
+    }
 
-                // Check for collisions
-                for (const asteroid of asteroids) {
-                    const distance = Math.hypot(player.x - asteroid.x, player.y - asteroid.y);
-                    if (distance < asteroid.size / 2) {
-                        gameOver = true;
-                    }
-                }
-
-                // Check for projectile-asteroid collisions
-                for (const projectile of projectiles) {
-                    for (const asteroid of asteroids) {
-                        const distance = Math.hypot(projectile.x - asteroid.x, projectile.y - asteroid.y);
-                        if (distance < asteroid.size / 2) {
-                            const indexAsteroid = asteroids.indexOf(asteroid);
-                            if (indexAsteroid > -1) {
-                                asteroids.splice(indexAsteroid, 1);
-                                const splitAsteroids = asteroid.split();
-                                asteroids.push(...splitAsteroids);
-                            }
-                            const indexProjectile = projectiles.indexOf(projectile);
-                            if (indexProjectile > -1) {
-                                projectiles.splice(indexProjectile, 1);
-                            }
-                        }
-                    }
-                }
-
-                // Check if all asteroids are cleared
-                if (asteroids.length === 0) {
-                    gameWon = true;
-                }
-            }
-
-            // Draw everything
-            player.draw();
-            for (const projectile of projectiles) {
-                projectile.draw();
-            }
-            for (const asteroid of asteroids) {
-                asteroid.draw();
-            }
-
-            if (gameOver) {
-                context.font = "72px Arial";
-                context.fillStyle = WHITE;
-                context.fillText("GAME OVER", SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2);
-                context.font = "36px Arial";
-                context.fillText("(Press spacebar for new game)", SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 + 50);
-            } else if (gameWon) {
-                context.font = "72px Arial";
-                context.fillStyle = WHITE;
-                context.fillText("YOU WON!", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2);
-                context.font = "36px Arial";
-                context.fillText("(Press spacebar for new game)", SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 + 50);
-            }
-
-            requestAnimationFrame(update);
-        }
-
-        resetGame();
-        update();
-    </script>
+    resetGame();
+    requestAnimationFrame(update);
+  </script>
 </body>
 </html>
