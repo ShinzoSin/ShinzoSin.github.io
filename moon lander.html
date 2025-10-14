@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Moon Lander — Momentum-Preserving Debris</title>
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#000;}
+  canvas{display:block;width:100vw;height:100vh;background:black;}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Raleway&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="moon-lander">
+  <div class="navbar">
+    <a href="index.html" class="navbar-button">Home</a>
+    <a href="asteroids.html" class="navbar-button">Asteroids</a>
+    <a href="snake.html" class="navbar-button">Snake</a>
+    <a href="moon lander.html" class="navbar-button">Moon Lander</a>
+  </div>
+  <canvas id="game"></canvas>
+  <script>
+  const c=document.getElementById("game"),ctx=c.getContext("2d",{alpha:false});
+  ctx.imageSmoothingEnabled=false;
+
+  let W,H,baseY,curveR;
+  const stars=[],rocks=[],keys={},cam={x:0,zoom:1};
+  const g=0.05,orbitR=2200,stableVx=Math.sqrt(g*orbitR);
+  const MAX_FUEL=20,FUEL_BURN=0.05;
+  let score=0,landedOnce=false,firstLandingX=0;
+  const debris=[];
+
+  const ship={x:0,y:0,vx:stableVx,vy:0,angle:0,thrust:0.12,rot:0.05,landed:false,crashed:false,radius:12,fuel:MAX_FUEL};
+
+  window.addEventListener("resize",resize);resize();
+  function resize(){
+    W=c.width=innerWidth;H=c.height=innerHeight;
+    baseY=H-100;curveR=W*4;
+    makeStars();makeRocks();resetShip();
+  }
+
+  function makeStars(){stars.length=0;for(let i=0;i<150;i++)stars.push({x:(Math.random()-0.5)*20000,y:Math.random()*H*0.6});}
+  function curvature(x){const rel=(x-(ship.x-W/2))*0.0015;return Math.pow(rel,2)*(W/curveR);}
+  function makeRocks(){rocks.length=0;for(let i=0;i<70;i++){const x=i*400+(Math.random()-0.5)*200;const s=15+Math.random()*25;const a=(Math.random()*Math.PI)/6;const y=baseY-curvature(x);rocks.push({x,y,size:s,angle:a});}}
+
+  window.addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyR")resetShip();});
+  window.addEventListener("keyup",e=>keys[e.code]=false);
+
+  function resetShip(){
+    ship.x=0;ship.y=H*0.25;ship.vx=stableVx;ship.vy=0;ship.angle=0;
+    ship.landed=false;ship.crashed=false;ship.fuel=MAX_FUEL;
+    landedOnce=false;firstLandingX=0;score=0;cam.zoom=1;
+    debris.length=0;
+  }
+
+  let last=performance.now();requestAnimationFrame(loop);
+  function loop(t){const dt=(t-last)/16.67;last=t;update(dt);draw();requestAnimationFrame(loop);}
+
+  function update(dt){
+    if(!ship.crashed){
+      if(keys["ArrowLeft"])ship.angle-=ship.rot*dt;
+      if(keys["ArrowRight"])ship.angle+=ship.rot*dt;
+      if(keys["ArrowUp"]&&ship.fuel>0){
+        if(ship.landed)ship.landed=false;
+        ship.vx+=Math.sin(ship.angle)*ship.thrust*dt;
+        ship.vy-=Math.cos(ship.angle)*ship.thrust*dt;
+        ship.fuel=Math.max(0,ship.fuel-FUEL_BURN*dt);
+      }
+      const lift=(ship.vx*ship.vx)/orbitR;
+      ship.vy+=(g-lift)*dt;ship.x+=ship.vx*dt;ship.y+=ship.vy*dt;
+      const groundY=baseY-curvature(ship.x),impactY=groundY-ship.radius;
+      if(ship.y>=impactY){
+        const speed=Math.hypot(ship.vx,ship.vy),upright=Math.abs(ship.angle)<0.3;
+        ship.y=impactY;
+        if(speed<2&&upright){
+          if(!landedOnce){landedOnce=true;firstLandingX=ship.x;score=Math.round(ship.fuel*10);}
+          else{const dist=Math.abs(ship.x-firstLandingX);score=Math.round(ship.fuel*10+dist/5);}
+          ship.landed=true;ship.vx=ship.vy=0;
+        }else{
+          triggerExplosion(ship.x,ship.y,ship.vx,ship.vy);
+          ship.crashed=true;
+        }
+      }
+    }
+
+    // debris physics (preserve horizontal motion longer)
+    for(const d of debris){
+      if(d.settled) continue;
+      d.vx*=0.997;                // very light drag — keep horizontal motion
+      d.vy+=g*dt*0.25;            // weaker gravity pull
+      d.x+=d.vx*dt;d.y+=d.vy*dt;
+      const groundY=baseY-curvature(d.x);
+      if(d.y>groundY-2){
+        d.y=groundY-2;
+        if(Math.abs(d.vy)>0.8){
+          d.vy*=-0.3;
+          d.vx*=0.95;             // small loss on bounce
+        }else{
+          d.vy=0;
+          if(Math.abs(d.vx)>0.05)d.vx*=0.95; // sliding friction
+          else{d.vx=0;d.settled=true;}
+        }
+      }
+    }
+
+    cam.x=ship.x-W/2;
+    const surfaceY=baseY-curvature(ship.x),top=80,bottom=80;
+    const yMin=ship.y-top,yMax=surfaceY+bottom,span=Math.max(1,yMax-yMin);
+    cam.zoom=Math.max(0.2,Math.min(1,H/span));
+    const yCenter=(yMin+yMax)/2;
+    const baseOffsetY=Math.round(H/2*(1-cam.zoom));
+    const extraY=Math.round(H/2-(cam.zoom*yCenter+baseOffsetY));
+    cam._offsetY=baseOffsetY+extraY;
+  }
+
+  function triggerExplosion(x,y,vx,vy){
+    debris.length=0;
+    const baseVx=vx,baseVy=vy;
+    for(let i=0;i<60;i++){
+      const a=Math.random()*Math.PI*2;
+      const s=2+Math.random()*7;
+      debris.push({
+        x,y,
+        vx: baseVx + Math.cos(a)*s,
+        vy: baseVy + Math.sin(a)*s,
+        settled:false
+      });
+    }
+  }
+
+  // --- DRAW ---
+  function draw(){
+    ctx.resetTransform();ctx.clearRect(0,0,W,H);
+    const z=cam.zoom,ox=Math.round(W/2*(1-z)),oy=cam._offsetY??Math.round(H/2*(1-z));
+    ctx.setTransform(z,0,0,z,ox,oy);ctx.lineWidth=Math.max(1/z,0.5);
+    drawStars();drawSurface();drawExplosion();drawShip();drawHUD();
+  }
+
+  function drawStars(){
+    ctx.save();ctx.translate(-cam.x*0.2,0);ctx.strokeStyle="#555";
+    for(const s of stars){ctx.beginPath();ctx.moveTo(W/2+s.x,s.y);ctx.lineTo(W/2+s.x+1,s.y);ctx.stroke();}
+    ctx.restore();
+  }
+
+  function drawSurface(){
+    ctx.save();ctx.translate(-cam.x,0);ctx.strokeStyle="#666";
+    ctx.beginPath();const startX=ship.x-W,endX=ship.x+W*2;
+    ctx.moveTo(startX,baseY-curvature(startX));
+    for(const r of rocks){
+      const left=r.x-r.size,right=r.x+r.size;
+      ctx.lineTo(left,baseY-curvature(left));
+      const byL=baseY-curvature(left),byR=baseY-curvature(right);
+      const mid=(byL+byR)/2,topX=r.x+Math.sin(r.angle)*r.size*0.3,topY=mid-r.size;
+      ctx.lineTo(topX,topY);ctx.lineTo(right,baseY-curvature(right));
+    }
+    ctx.lineTo(endX,baseY-curvature(endX));ctx.stroke();ctx.restore();
+  }
+
+  function drawExplosion(){
+    if(!debris.length)return;
+    ctx.save();ctx.translate(-cam.x,0);ctx.strokeStyle="#fff";
+    for(const d of debris){
+      ctx.beginPath();
+      ctx.moveTo(d.x-2,d.y-2);
+      ctx.lineTo(d.x+2,d.y+2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawShip(){
+    if(ship.crashed)return;
+    ctx.save();ctx.translate(W/2,ship.y);ctx.rotate(ship.angle);ctx.strokeStyle="#fff";
+    ctx.beginPath();ctx.rect(-8,-15,16,20);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-8,5);ctx.lineTo(-15,15);
+    ctx.moveTo(8,5);ctx.lineTo(15,15);
+    ctx.moveTo(0,5);ctx.lineTo(0,16);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-3,5);ctx.lineTo(3,5);ctx.lineTo(0,10);ctx.closePath();ctx.stroke();
+    if(keys["ArrowUp"]&&!ship.crashed&&ship.fuel>0){
+      ctx.beginPath();ctx.moveTo(-2,10);ctx.lineTo(0,16+Math.random()*6);ctx.lineTo(2,10);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawHUD(){
+    ctx.resetTransform();ctx.fillStyle="#fff";ctx.font="14px monospace";
+    const v=Math.round(ship.vy*100)/100,f=Math.max(0,Math.round((ship.fuel/MAX_FUEL)*100));
+    ctx.fillText(`Fuel: ${f}%   Vspd: ${v}   Zoom: ${cam.zoom.toFixed(2)}`,20,30);
+    let msg="↑ Thrust | ← → Rotate | Land or fly freely";
+    if(ship.landed){msg=`✅ Landed! Score: ${score}`;if(landedOnce)msg+=" (+distance bonus)";msg+=" | ↑ to lift off | R to restart";}
+    if(ship.crashed)msg="💥 Crashed! Press R to restart";
+    if(ship.fuel<=0&&!ship.crashed&&!ship.landed)msg="⛽ Fuel depleted! You will crash...";
+    ctx.fillText(msg,20,50);
+  }
+  </script>
+</body>
+</html>
