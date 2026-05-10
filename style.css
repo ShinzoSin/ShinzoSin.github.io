@@ -36,18 +36,14 @@ a:active {
   position: relative;
 }
 
-/* Dark atmospheric background:
-   visible enough to show the technical side, but lower contrast so it does not fight the main message. */
+/* Dark atmospheric background: */
 .home::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image:
-    linear-gradient(90deg, rgba(40, 44, 53, 0.18), rgba(40, 44, 53, 0.84) 38%, rgba(40, 44, 53, 0.98) 100%),
-    url("background.jpg");
+  background-image: url("background.jpg");
   background-size: cover;
   background-position: left center;
-  opacity: 0.42;
   filter: saturate(0.75) contrast(0.9);
   z-index: -2;
 }
